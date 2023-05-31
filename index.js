@@ -1,5 +1,5 @@
 // импорт стандартных библиотек Node.js
-const { readFileSync } = require('fs');
+const { readFileSync, readFile, existsSync, writeFileSync } = require('fs');
 const protocol = process.env.HTTP || 'http';
 const { createServer } = require(protocol);
 const path = require('path');
@@ -12,8 +12,9 @@ if (protocol === 'https') {
   options['cert'] = readFileSync(`${certDir}/${domain}/fullchain.pem`);
 }
 
-// файл для базы данных
+// файлы для базы данных и заказов
 const DB_FILE = process.env.DB_FILE || path.resolve(__dirname, 'db.json');
+const DB_ORDER = process.env.DB_ORDER || path.resolve(__dirname, 'order.json');
 // номер порта, на котором будет запущен сервер
 const PORT = process.env.PORT || 3024;
 // префикс URI для всех методов приложения
@@ -29,6 +30,18 @@ class ApiError extends Error {
     this.data = data;
   }
 }
+
+const getJsonData = req => {
+  return new Promise(resolve => {
+    let data = '';
+    req.on('data', chunk => {
+      data += chunk;
+    });
+    req.on('end', () => {
+      resolve(JSON.parse(data));
+    });
+  });
+};
 
 /**
  * Фильтрует список товаров по дисконту и возвращает случайных 16 товаров
@@ -72,7 +85,7 @@ const pagination = (goods, page, count, sort) => {
  * @returns {{ id: string, title: string, price: number, discountPrice: number, description: Object[],
  * category: string, image: string}[]} Массив товаров
  */
-function getGoodsList(params = {}) {
+const getGoodsList = (params = {}) => {
   const page = +params.page || 1;
   const paginationCount = params.count || 12;
   const sort = {
@@ -124,7 +137,7 @@ function getGoodsList(params = {}) {
   }
 
   return pagination(data, page, paginationCount, sort);
-}
+};
 
 /**
  * Возвращает объект товара по его ID
@@ -133,22 +146,34 @@ function getGoodsList(params = {}) {
  * @returns {{ id: string, title: string, price: number, discountPrice: number, description: Object[],
  * category: string, image: string}} Объект клиента
  */
-function getItems(itemId) {
+const getItems = itemId => {
   const goods = JSON.parse(readFileSync(DB_FILE) || '[]');
   const item = goods.find(({ id }) => id === itemId);
   if (!item) throw new ApiError(404, { message: 'Item Not Found' });
   return item;
-}
+};
 
-function getCategory() {
+const getCategory = () => {
   const goods = JSON.parse(readFileSync(DB_FILE) || '[]');
   const category = {};
   for (let i = 0; i < goods.length; i++) {
     category[goods[i].category] = goods[i].categoryRus;
   }
-
   return category;
-}
+};
+
+//Возвращаем список заказов из базы данных
+const getOrdersList = () => JSON.parse(readFileSync(DB_ORDER) || '[]');
+
+const createOrder = data => {
+  const id = Math.random().toString().substring(2, 8) + Date.now().toString().substring(9);
+  const newItem = { ...data, id };
+  writeFileSync(DB_ORDER, JSON.stringify([...getOrdersList(), newItem]), { encoding: 'utf8' });
+  return { id: newItem.id };
+};
+
+//Создаём новый файл с базой данных, если он не существует
+if (!existsSync(DB_ORDER)) writeFileSync(DB_ORDER, '[]', { encoding: 'utf8' });
 
 // создаём HTTP сервер, переданная функция будет реагировать на все запросы к нему
 createServer(options, async (req, res) => {
@@ -157,7 +182,7 @@ createServer(options, async (req, res) => {
   if (req.url.substring(1, 4) === 'img') {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'image/jpeg');
-    require('fs').readFile(`.${req.url}`, (err, image) => {
+    readFile(`.${req.url}`, (err, image) => {
       res.end(image);
     });
     return;
@@ -168,7 +193,7 @@ createServer(options, async (req, res) => {
 
   // CORS заголовки ответа для поддержки кросс-доменных запросов из браузера
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   // запрос с методом OPTIONS может отправлять браузер автоматически для проверки CORS заголовков
@@ -185,6 +210,24 @@ createServer(options, async (req, res) => {
     })();
     res.end(JSON.stringify(body));
     return;
+  }
+
+  if (req.url.includes('/api/order')) {
+    if (req.method === 'POST') {
+      const body = await (async () => {
+        const data = await getJsonData(req);
+        res.statusCode = 201;
+        return createOrder(data);
+      })();
+      res.end(JSON.stringify(body));
+      return;
+    } else if (req.method === 'GET') {
+      const body = await (async () => {
+        return getOrdersList();
+      })();
+      res.end(JSON.stringify(body));
+      return;
+    }
   }
 
   // если URI не начинается с нужного префикса - можем сразу отдать 404
@@ -255,6 +298,7 @@ createServer(options, async (req, res) => {
         maxdisplay`,
       );
       console.log(`GET ${URI_PREFIX}?{list="{id},{id}"} - получить товары по id`);
+      console.log('POST /api/order - отправка заказа на сервер');
     }
   })
   // ...и вызываем запуск сервера на указанном порту

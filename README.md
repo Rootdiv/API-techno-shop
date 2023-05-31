@@ -23,6 +23,8 @@ GET /api/goods?{category=""&maxprice=""} - фильтрация
 
 GET /api/goods?{list="{id},{id}"} - получить товары по id
 
+POST /api/order - отправка заказа на сервер
+
 ## Запуск API на хостинге:
 
 - Установить Node.js по инструкции хостинга
