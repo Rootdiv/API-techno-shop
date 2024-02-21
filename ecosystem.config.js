@@ -5,7 +5,7 @@ module.exports = {
       script: 'index.js',
       watch: 'index.js',
       env: {
-        HTTP: 'https',
+        HTTPS: true,
       },
     },
   ],

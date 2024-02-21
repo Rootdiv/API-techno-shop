@@ -1,6 +1,6 @@
 // импорт стандартных библиотек Node.js
 const { readFileSync, readFile, existsSync, writeFileSync } = require('fs');
-const protocol = process.env.HTTP || 'http';
+const protocol = process.env.HTTPS === 'true' ? 'https' : 'http';
 const { createServer } = require(protocol);
 const path = require('path');
 
@@ -101,7 +101,8 @@ const getGoodsList = (params = {}) => {
     const search = params.search.trim().toLowerCase();
     data = goods.filter(
       item =>
-        item.title.toLowerCase().includes(search) || item.description.some(item => item.toLowerCase().includes(search)),
+        item.title.toLowerCase().includes(search) ||
+        item.description.some(item => item.toLowerCase().includes(search)),
     );
   }
 
@@ -279,8 +280,10 @@ createServer(options, async (req, res) => {
 })
   // выводим инструкцию, как только сервер запустился...
   .on('listening', () => {
-    if (protocol !== 'https') {
-      console.log(`Сервер CRM запущен. Вы можете использовать его по адресу http://localhost:${PORT}`);
+    if (protocol === 'http') {
+      console.log(
+        `Сервер CRM запущен. Вы можете использовать его по адресу http://localhost:${PORT}`,
+      );
       console.log('Нажмите CTRL+C, чтобы остановить сервер');
       console.log('Доступные методы:');
       console.log(`GET /api/category - получить список категорий`);
