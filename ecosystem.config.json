@@ -1,0 +1,16 @@
+{
+  "apps": [
+    {
+      "name": "techno-shop",
+      "script": "index.js",
+      "watch": [
+        "modules",
+        "const.js",
+        "index.js"
+      ],
+      "env": {
+        "PROD": true
+      }
+    }
+  ]
+}
