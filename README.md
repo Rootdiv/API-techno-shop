@@ -1,4 +1,4 @@
-# Сервер API для интернет-магазина Techno Shop и Techno Shop
+# Сервер API для интернет-магазина Techno Shop и Vue 3 Techno Shop
 
 Доступные методы:
 
@@ -30,6 +30,5 @@ POST /api/order - отправка заказа на сервер
 - Установить Node.js по инструкции хостинга
 - Установить pm2: npm install -g pm2
 - Выполнить: pm2 startup
-- При запуске через https нужно изменить переменные `domain` и `certDir`
-- В каталоге API выполнить: pm2 start
+- В каталоге API выполнить: pm2 start ecosystem.config.json
 - Выполнить: pm2 save
